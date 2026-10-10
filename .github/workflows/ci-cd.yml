@@ -1,0 +1,69 @@
+name: CI/CD Pipeline & CloudFormation Deploy
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build-and-test:
+    name: Build & Test (Java 21)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java 21 LTS
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Make Maven Wrapper Executable
+        run: chmod +x mvnw
+
+      - name: Run Unit Tests & Package JAR
+        run: ./mvnw clean verify package -Daws.dynamodb.enabled=false
+
+      - name: Archive Application Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: todo-app-jar
+          path: target/*.jar
+          retention-days: 7
+
+  deploy-infrastructure:
+    name: Deploy AWS Infrastructure (CloudFormation)
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        if: env.AWS_ROLE_TO_ASSUME != '' || env.AWS_ACCESS_KEY_ID != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Deploy DynamoDB & IAM Stack
+        if: env.AWS_ROLE_TO_ASSUME != '' || env.AWS_ACCESS_KEY_ID != ''
+        uses: aws-actions/aws-cloudformation-github-deploy@v1
+        with:
+          name: dev-todo-app-stack
+          template: cloudformation/template.yaml
+          parameter-overrides: "Environment=dev"
+          capabilities: CAPABILITY_NAMED_IAM
+          no-fail-on-empty-changeset: "1"

@@ -1,0 +1,99 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template for FocusTask TODO Application: DynamoDB Table with TTL and least-privilege IAM Role'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Description: Deployment environment (dev, staging, prod)
+
+Resources:
+  # DynamoDB Table with On-Demand Capacity and Time-To-Live (TTL)
+  TodoItemsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${Environment}-TodoItems'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: FocusTask-TodoApp
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  # Least-Privilege IAM Execution Role for the Application
+  TodoAppRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Environment}-TodoApp-ExecutionRole'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+                - ecs-tasks.amazonaws.com
+                - apprunner.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: TodoItemsDynamoDbAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Scan
+                  - dynamodb:Query
+                  - dynamodb:BatchGetItem
+                  - dynamodb:BatchWriteItem
+                  - dynamodb:DescribeTable
+                Resource:
+                  - !GetAtt TodoItemsTable.Arn
+                  - !Sub '${TodoItemsTable.Arn}/index/*'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: FocusTask-TodoApp
+
+Outputs:
+  DynamoDbTableName:
+    Description: Name of the DynamoDB table for TODO items
+    Value: !Ref TodoItemsTable
+    Export:
+      Name: !Sub '${Environment}-TodoItems-TableName'
+
+  DynamoDbTableArn:
+    Description: ARN of the DynamoDB table
+    Value: !GetAtt TodoItemsTable.Arn
+    Export:
+      Name: !Sub '${Environment}-TodoItems-TableArn'
+
+  AppExecutionRoleArn:
+    Description: ARN of the IAM Role for application execution
+    Value: !GetAtt TodoAppRole.Arn
+    Export:
+      Name: !Sub '${Environment}-TodoApp-RoleArn'

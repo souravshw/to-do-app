@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="High performance modern TODO web application powered by Spring Boot and Amazon DynamoDB.">
+    <title>FocusTask — Modern TODO Application</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Vanilla CSS Stylesheet -->
+    <link rel="stylesheet" th:href="@{/css/styles.css}" href="/css/styles.css">
+</head>
+<body>
+    <div class="app-background">
+        <div class="ambient-glow glow-1"></div>
+        <div class="ambient-glow glow-2"></div>
+    </div>
+
+    <main class="app-container" id="main-content">
+        <!-- Top Application Header -->
+        <header class="app-header">
+            <div class="brand-row">
+                <div class="brand-identity">
+                    <div class="brand-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="brand-title">FocusTask</h1>
+                        <p class="brand-subtitle">Spring Boot & Amazon DynamoDB</p>
+                    </div>
+                </div>
+                <div class="header-badges">
+                    <span id="storage-badge" class="status-badge" th:text="${storageMode}">AWS DynamoDB</span>
+                    <span id="stats-pill" class="stats-pill">0 of 0 done</span>
+                </div>
+            </div>
+
+            <!-- Animated Progress Bar -->
+            <div class="progress-container" aria-label="Task completion progress">
+                <div class="progress-bar-track">
+                    <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%;"></div>
+                </div>
+                <div class="progress-label-row">
+                    <span id="progress-percentage-label">0% completed</span>
+                    <span id="active-tasks-label">0 active tasks</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- New Task Creation Form -->
+        <section class="card task-composer-card" aria-label="Add new task">
+            <form id="new-task-form" class="task-form" onsubmit="return false;">
+                <div class="composer-main-row">
+                    <input 
+                        type="text" 
+                        id="new-task-input" 
+                        class="task-input" 
+                        placeholder="What needs to be done? (Press Enter to add)" 
+                        maxlength="250" 
+                        required
+                        autocomplete="off"
+                        aria-label="New task description"
+                    >
+                    <button type="submit" id="add-task-btn" class="btn btn-primary" aria-label="Add task">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        <span>Add Task</span>
+                    </button>
+                </div>
+                <div class="composer-options-row">
+                    <div class="option-group">
+                        <label for="new-task-priority" class="field-label">Priority</label>
+                        <select id="new-task-priority" class="select-input" aria-label="Task priority">
+                            <option value="HIGH">High Priority</option>
+                            <option value="MEDIUM" selected>Medium Priority</option>
+                            <option value="LOW">Low Priority</option>
+                        </select>
+                    </div>
+
+                    <div class="option-group">
+                        <label for="new-task-date" class="field-label">Due Date</label>
+                        <input type="date" id="new-task-date" class="date-input" aria-label="Task due date">
+                    </div>
+
+                    <div class="option-group">
+                        <label for="new-task-category" class="field-label">Category</label>
+                        <input type="text" id="new-task-category" class="text-input" placeholder="e.g. Work, Personal" maxlength="40" aria-label="Task category">
+                    </div>
+                </div>
+            </form>
+        </section>
+
+        <!-- Search & Filter Controls -->
+        <section class="controls-toolbar" aria-label="Filter and search tasks">
+            <div class="search-box">
+                <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="search" id="search-input" class="search-input" placeholder="Search tasks..." aria-label="Search tasks">
+                <button type="button" id="search-clear-btn" class="search-clear-btn hidden" aria-label="Clear search">✕</button>
+            </div>
+
+            <div class="filter-pills" role="tablist" aria-label="Filter by status">
+                <button type="button" id="filter-all" class="filter-pill active" role="tab" aria-selected="true">All</button>
+                <button type="button" id="filter-active" class="filter-pill" role="tab" aria-selected="false">Active</button>
+                <button type="button" id="filter-completed" class="filter-pill" role="tab" aria-selected="false">Completed</button>
+                <button type="button" id="filter-high" class="filter-pill" role="tab" aria-selected="false">High Priority</button>
+            </div>
+
+            <button type="button" id="clear-completed-btn" class="btn btn-ghost clear-btn" aria-label="Clear completed tasks">
+                Clear Completed
+            </button>
+        </section>
+
+        <!-- Dynamic Task List -->
+        <section class="card task-list-card" aria-label="Task list">
+            <ul id="todo-list" class="todo-list" aria-live="polite">
+                <!-- Items populated dynamically via app.js -->
+            </ul>
+
+            <!-- Empty State Display -->
+            <div id="empty-state" class="empty-state hidden">
+                <div class="empty-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M8 12l2 2 4-4"></path>
+                    </svg>
+                </div>
+                <h2 class="empty-title">All tasks completed!</h2>
+                <p class="empty-subtitle">You are all caught up. Add a new item above to stay productive.</p>
+            </div>
+        </section>
+
+        <!-- Helpful Keyboard & UX Tips -->
+        <footer class="app-footer">
+            <p>
+                <span class="kbd-hint"><kbd>Double-click</kbd> any task to edit inline</span> &bull; 
+                <span class="kbd-hint"><kbd>Enter</kbd> to save</span> &bull; 
+                <span class="kbd-hint"><kbd>Esc</kbd> to cancel</span>
+            </p>
+            <p class="retention-note">Completed items automatically sink to the bottom with 30-day DynamoDB TTL retention.</p>
+        </footer>
+    </main>
+
+    <!-- Floating Toast Notification Container -->
+    <div id="toast-container" class="toast-container" aria-live="assertive"></div>
+
+    <!-- Client-side Logic -->
+    <script th:src="@{/js/app.js}" src="/js/app.js"></script>
+</body>
+</html>

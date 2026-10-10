@@ -1,0 +1,21 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: todo-app
+  thymeleaf:
+    cache: false
+
+aws:
+  dynamodb:
+    region: ${AWS_REGION:us-east-1}
+    endpoint: ${AWS_DYNAMODB_ENDPOINT:}
+    table-name: ${DYNAMODB_TABLE_NAME:dev-TodoItems}
+    create-table-if-not-exists: ${CREATE_TABLE_IF_NOT_EXISTS:true}
+    enabled: ${DYNAMODB_ENABLED:true}
+
+logging:
+  level:
+    com.example.todo: INFO
+    software.amazon.awssdk: WARN

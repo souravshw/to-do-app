@@ -1,0 +1,29 @@
+services:
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    container_name: focustask-dynamodb-local
+    ports:
+      - "8000:8000"
+    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /home/dynamodblocal/data"
+    volumes:
+      - dynamodb-data:/home/dynamodblocal/data
+    working_dir: /home/dynamodblocal
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: focustask-app
+    ports:
+      - "8080:8080"
+    environment:
+      AWS_REGION: "us-east-1"
+      AWS_DYNAMODB_ENDPOINT: "http://dynamodb-local:8000"
+      DYNAMODB_TABLE_NAME: "dev-TodoItems"
+      CREATE_TABLE_IF_NOT_EXISTS: "true"
+      DYNAMODB_ENABLED: "true"
+    depends_on:
+      - dynamodb-local
+
+volumes:
+  dynamodb-data:
